@@ -614,77 +614,78 @@ def grobid_quantities(sentence, a, endpoint):
     quantities = response[1]
 
     # Add token index for num, unit, quantified if available
-    if isinstance(quantities, dict) and "measurements" in quantities.keys():
-        for q in quantities["measurements"]:
+    if isinstance(quantities, dict):
+        if "measurements" in quantities.keys():
+            for q in quantities["measurements"]:
 
-            key = ""
-            if q["type"] == "value":
-                key = "quantity"
-            # if Grobid doesn't parse interval correctly, sometimes only 'QuantityLeast' or 'QuantityMost' is available
-            if q["type"] == "interval":
-                if "quantityLeast" in q:
-                    key = "quantityLeast"
-                elif "QuantityMost" in q:
-                    key = "quantityMost"
-                else:
+                key = ""
+                if q["type"] == "value":
+                    key = "quantity"
+                # if Grobid doesn't parse interval correctly, sometimes only 'QuantityLeast' or 'QuantityMost' is available
+                if q["type"] == "interval":
+                    if "quantityLeast" in q:
+                        key = "quantityLeast"
+                    elif "QuantityMost" in q:
+                        key = "quantityMost"
+                    else:
+                        return {}
+
+                if q["type"] == "listc":
                     return {}
 
-            if q["type"] == "listc":
-                return {}
+                if key == "":
+                    logging.error('Unknown Grobid key resulting from parse of: %s' % sentence)
+                    print("Unknown Grobid key resulting from parse of: %s" % sentence)
 
-            if key == "":
-                logging.error('Unknown Grobid key resulting from parse of: %s' % sentence)
-                print("Unknown Grobid key resulting from parse of: %s" % sentence)
+                # Grobid doesn't pick up negatives
+                if sentence[sentence.find(q[key]["rawValue"]) - 1] == "-":
+                    q[key]["parsedValue"] = float("-" + str(q[key]["parsedValue"]))
+                    q[key]["rawValue"] = "-" + str(q[key]["rawValue"])
+                    q[key]["offsetStart"] -= 1
 
-            # Grobid doesn't pick up negatives
-            if sentence[sentence.find(q[key]["rawValue"]) - 1] == "-":
-                q[key]["parsedValue"] = float("-" + str(q[key]["parsedValue"]))
-                q[key]["rawValue"] = "-" + str(q[key]["rawValue"])
-                q[key]["offsetStart"] -= 1
-
-            if q[key]["offsetStart"] in a.tok_start:
-                q[key]["tokenIndex"] = a.tok_start[q[key]["offsetStart"]]
-            else:
-                print("Not finding token index for Grobid Quantity value in CoreNLP output. Sentence: %s" % sentence)
-                logging.error(
-                    "Not finding token index for Grobid Quantity value in CoreNLP output. Sentence: %s" % sentence)
-                return {}
-
-            if "rawUnit" in q[key]:
-                q[key]["rawUnit"]["after"] = a.lookup[q[key]["tokenIndex"]]["after"]
-                q[key]["rawUnit"]["tokenIndices"] = []
-
-                if q[key]["rawUnit"]["offsetStart"] in a.tok_start:
-                    q[key]["rawUnit"]["tokenIndices"].append(str(a.tok_start[q[key]["rawUnit"]["offsetStart"]]))
-                if q[key]["rawUnit"]["offsetEnd"] in a.tok_end:
-                    q[key]["rawUnit"]["tokenIndices"].append(str(a.tok_end[q[key]["rawUnit"]["offsetEnd"]]))
-
-                if q[key]["rawUnit"]["offsetStart"] == q[key]["offsetEnd"]:
-                    q[key]["rawUnit"]["tokenIndices"].append(str(q[key]["tokenIndex"]))
-                q[key]["rawUnit"]["tokenIndices"] = list(set(q[key]["rawUnit"]["tokenIndices"]))
-
-            if "quantified" in q:
-
-                # often times Grobid with return a phrase where normalized name is in middle. In this case, "offsetStart" identifies the wrong token
-                add_to_offset = 0
-                normalized_idx, words = None, None
-                if " " in q["quantified"]["rawName"]:
-                    words = q["quantified"]["rawName"].split(" ")
-                    for i, w in enumerate(words):
-                        if not q["quantified"]["normalizedName"] in w:
-                            add_to_offset += (len(w) + 1)  # +1 for space that was split on
-                        else:
-                            break
-
-                q["quantified"]["offsetStart"] += add_to_offset
-
-                if q["quantified"]["offsetStart"] in a.tok_start:
-                    q["quantified"]["tokenIndex"] = a.tok_start[q["quantified"]["offsetStart"]]
+                if q[key]["offsetStart"] in a.tok_start:
+                    q[key]["tokenIndex"] = a.tok_start[q[key]["offsetStart"]]
                 else:
-                    logging.warning(
-                        "Not finding token index for Grobid quantified word in CoreNLP output. Sentence: %s" % (
-                            sentence))
-                    # hyphen causing issue - Grobid doesn't treat hyphenated clause as one word
-                    # example error sentence: "Macroscopic examination of the CNS revealed micrencephaly with a whole-brain weight of 84 grams."
+                    print("Not finding token index for Grobid Quantity value in CoreNLP output. Sentence: %s" % sentence)
+                    logging.error(
+                        "Not finding token index for Grobid Quantity value in CoreNLP output. Sentence: %s" % sentence)
+                    return {}
+
+                if "rawUnit" in q[key]:
+                    q[key]["rawUnit"]["after"] = a.lookup[q[key]["tokenIndex"]]["after"]
+                    q[key]["rawUnit"]["tokenIndices"] = []
+
+                    if q[key]["rawUnit"]["offsetStart"] in a.tok_start:
+                        q[key]["rawUnit"]["tokenIndices"].append(str(a.tok_start[q[key]["rawUnit"]["offsetStart"]]))
+                    if q[key]["rawUnit"]["offsetEnd"] in a.tok_end:
+                        q[key]["rawUnit"]["tokenIndices"].append(str(a.tok_end[q[key]["rawUnit"]["offsetEnd"]]))
+
+                    if q[key]["rawUnit"]["offsetStart"] == q[key]["offsetEnd"]:
+                        q[key]["rawUnit"]["tokenIndices"].append(str(q[key]["tokenIndex"]))
+                    q[key]["rawUnit"]["tokenIndices"] = list(set(q[key]["rawUnit"]["tokenIndices"]))
+
+                if "quantified" in q:
+
+                    # often times Grobid with return a phrase where normalized name is in middle. In this case, "offsetStart" identifies the wrong token
+                    add_to_offset = 0
+                    normalized_idx, words = None, None
+                    if " " in q["quantified"]["rawName"]:
+                        words = q["quantified"]["rawName"].split(" ")
+                        for i, w in enumerate(words):
+                            if not q["quantified"]["normalizedName"] in w:
+                                add_to_offset += (len(w) + 1)  # +1 for space that was split on
+                            else:
+                                break
+
+                    q["quantified"]["offsetStart"] += add_to_offset
+
+                    if q["quantified"]["offsetStart"] in a.tok_start:
+                        q["quantified"]["tokenIndex"] = a.tok_start[q["quantified"]["offsetStart"]]
+                    else:
+                        logging.warning(
+                            "Not finding token index for Grobid quantified word in CoreNLP output. Sentence: %s" % (
+                                sentence))
+                        # hyphen causing issue - Grobid doesn't treat hyphenated clause as one word
+                        # example error sentence: "Macroscopic examination of the CNS revealed micrencephaly with a whole-brain weight of 84 grams."
 
     return quantities
