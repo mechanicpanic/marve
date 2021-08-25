@@ -125,7 +125,7 @@ def _get_cousin(sibling_idx, dep_type_list, visited_nodes={}):
             allowed_pos = ["NN", "PR"]
             if cousin_idx and dep_type in edge[2]['dep'] and any(
                             x in A.lookup[int(cousin_idx)]['pos'] for x in allowed_pos):
-                words.append(G.node[cousin_idx]['word'])
+                words.append(G.nodes[cousin_idx]['word'])
 
             # Go to second cousin if cousin is a verb
             elif cousin_idx and dep_type in edge[2]['dep'] and "VB" in A.lookup[int(cousin_idx)]['pos'] and (
@@ -191,7 +191,7 @@ def _add_descriptors(related):
                 additional_related = _get_cousin(sibling_idx, ["nmod"])
                 for add in set(additional_related):
                     related = _add_related(add, "nmod", related, A.index_lookup[add],
-                                           connector=G.node[sibling_idx]['word'])
+                                           connector=G.nodes[sibling_idx]['word'])
     return related
 
 
@@ -221,11 +221,11 @@ def _check_criteria(dep, dep_obj, all_related, edge, sibling_idx):
                 for pos in dep_obj[pos_logic].keys():
 
                     # Check for allowed part of speech tags in matched dependency patterns
-                    if (pos_logic == "pos_in" and pos in G.node[sibling_idx]["pos"]) or (
-                            pos_logic == "pos_equals" and pos == G.node[sibling_idx]["pos"]):
+                    if (pos_logic == "pos_in" and pos in G.nodes[sibling_idx]["pos"]) or (
+                            pos_logic == "pos_equals" and pos == G.nodes[sibling_idx]["pos"]):
                         pass
                     elif pos_logic == "pos_not":
-                        if not [False if not_pos == G.node[sibling_idx]["pos"] else True for not_pos in
+                        if not [False if not_pos == G.nodes[sibling_idx]["pos"] else True for not_pos in
                                 dep_obj.keys()]: continue
                     else:
                         continue
@@ -233,34 +233,34 @@ def _check_criteria(dep, dep_obj, all_related, edge, sibling_idx):
                     # if no additional checks, have a match
                     if dep_obj[pos_logic][pos] == None or any(
                                     y in dep_obj[pos_logic][pos] for y in [None, "add_sibling"]):
-                        all_related = _add_related(G.node[sibling_idx]['word'], dep, all_related,
-                                                   A.index_lookup[G.node[sibling_idx]['word']])
+                        all_related = _add_related(G.nodes[sibling_idx]['word'], dep, all_related,
+                                                   A.index_lookup[G.nodes[sibling_idx]['word']])
 
                     # if additional checks are required, process further
                     if dep_obj[pos_logic][pos]:
                         if "get_cousin" in dep_obj[pos_logic][pos]:
                             related.extend(_get_cousin(sibling_idx, dep_obj[pos_logic][pos]["get_cousin"]))
-                            connector = G.node[sibling_idx]['word']
+                            connector = G.nodes[sibling_idx]['word']
 
                         if "special" in dep_obj[pos_logic][pos]:
                             if dep == "compound" and pos == "NN":
-                                related = [G.node[sibling_idx]['word']]
+                                related = [G.nodes[sibling_idx]['word']]
 
                         if None in related:
                             related.remove(None)
 
                         # Allows for getting cousin and returning sibling
                         if "else" in dep_obj[pos_logic][pos].keys() and dep_obj[pos_logic][pos]["else"] == "always":
-                            all_related = _add_related(G.node[sibling_idx]['word'], dep, all_related,
-                                                       A.index_lookup[G.node[sibling_idx]['word']], connector=connector)
+                            all_related = _add_related(G.nodes[sibling_idx]['word'], dep, all_related,
+                                                       A.index_lookup[G.nodes[sibling_idx]['word']], connector=connector)
                         if len(related) > 0 and isinstance(related, list):
                             for x in related:
                                 if x != None:
                                     all_related = _add_related(x, dep, all_related, A.index_lookup[x],
                                                                connector=connector)
                         elif "else" in dep_obj[pos_logic][pos].keys() and dep_obj[pos_logic][pos]["else"] == True:
-                            all_related = _add_related(G.node[sibling_idx]['word'], dep, all_related,
-                                                       A.index_lookup[G.node[sibling_idx]['word']], connector=connector)
+                            all_related = _add_related(G.nodes[sibling_idx]['word'], dep, all_related,
+                                                       A.index_lookup[G.nodes[sibling_idx]['word']], connector=connector)
 
     return all_related
 
@@ -299,7 +299,7 @@ def _parse_patterns(unit_idx, measurement_format, patterns_file):
                             all_related = _check_criteria(dep, tree["dep"][dep], all_related, edge, sibling_idx)
 
                     for x in range(0, len(tree["word"]["or"])):
-                        if G.node[sibling_idx]["word"] == tree["word"]["or"][x]:
+                        if G.nodes[sibling_idx]["word"] == tree["word"]["or"][x]:
                             related = _get_cousin(sibling_idx, ["nsubj"])
                             for r in related:
                                 all_related = _add_related(r, "operator", all_related, A.index_lookup[r])
