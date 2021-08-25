@@ -614,7 +614,7 @@ def grobid_quantities(sentence, a, endpoint):
     quantities = response[1]
 
     # Add token index for num, unit, quantified if available
-    if isinstance(quantities, dict):
+    if isinstance(quantities, dict) and "measurements" in quantities.keys():
         for q in quantities["measurements"]:
 
             key = ""
